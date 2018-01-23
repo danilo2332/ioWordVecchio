@@ -53,9 +53,9 @@ public final class Vote extends BaseObject {
         absent = new ArrayList<String>();
     }
 
-    public Vote(String billId, Date date, int type, String sequenceNumber)
+    public synchronized Vote(String billId, Date date, int type, String sequenceNumber)
     {
-    	synchronized(dateFormat) {
+ 
         this();
         this.voteDate = date;
         java.util.Calendar cal = java.util.Calendar.getInstance();
@@ -65,7 +65,6 @@ public final class Vote extends BaseObject {
         this.voteType = type;
         this.setSequenceNumber(sequenceNumber);
         this.oid = billId+'-'+dateFormat.format(voteDate)+'-'+String.valueOf(voteType)+'-'+sequenceNumber;
-    	}
     }
 
     public Vote(Bill bill, Date date, int type, String sequenceNumber)

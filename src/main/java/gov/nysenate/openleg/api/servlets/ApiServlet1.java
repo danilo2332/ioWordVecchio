@@ -36,7 +36,6 @@ public class ApiServlet1 extends HttpServlet
     public final static Pattern documentPattern = Pattern.compile("(?:/api)?(?:/1.0)?/(json|xml|jsonp|html-print|lrs-print|html|pdf)/(bill|calendar|meeting|transcript)/(.*)$", Pattern.CASE_INSENSITIVE);
     public final static Pattern searchPattern = Pattern.compile("(?:/api)?(?:/1.0)?/(csv|atom|rss|json|xml|jsonp)/(search|votes|bills|meetings|actions|calendars|transcripts|sponsor)(?:/(.*?[a-z].*?))?(?:/([0-9]+))?(?:/([0-9]+))?/?$", Pattern.CASE_INSENSITIVE);
 
-    
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         int pageIdx = 1;
@@ -51,18 +50,21 @@ public class ApiServlet1 extends HttpServlet
 
         try {
             try {
-                if (pageIdxParam != null && Integer.parseInt(pageIdxParam)>1) {
                 
+                if (pageIdxParam != null) {
+                    pageIdx = Integer.parseInt(pageIdxParam);
+                if(pageIdx < 1) {
                         throw new ApiRequestException("Page number must be greater than 0");
                     }
 
                 }
 
-                if (pageSizeParam != null && Integer.parseInt(pageSizeParam) > MAX_PAGE_SIZE) {
-                
+                if (pageSizeParam != null) {
+                    pageSize = Integer.parseInt(pageSizeParam);
+                    if (pageSize > MAX_PAGE_SIZE) {
                         throw new ApiRequestException("Page size must be less than 1000");
                     }
-                else (pageSize < 1) {
+                    else if (pageSize < 1) {
                         throw new ApiRequestException("Page size must be greater than 0");
                     }
                 }
@@ -73,6 +75,9 @@ public class ApiServlet1 extends HttpServlet
 
             if ("true".equals(sortOrderParam)) {
                 sortOrder = true;
+            }
+            else if (sortOrderParam == null || "false".equals(sortOrderParam)) {
+                sortOrder = false;
             }
             else {
                 throw new ApiRequestException("Invalid sortOrder parameter: "+sortOrderParam);
@@ -88,19 +93,24 @@ public class ApiServlet1 extends HttpServlet
                 String sizePart = searchMatcher.group(5);
                 String term = RequestUtils.getSearchString(request, uriTerm);
 
-                if (pagePart != null && Integer.valueOf(pagePart) < 1) {
+                if (pagePart != null) {
+                    pageIdx = Integer.valueOf(pagePart);
+                    if (pageIdx < 1) {
                         throw new ApiRequestException("Page number must be greater than 0");
                     }
                 }
-                if (sizePart != null && Integer.valueOf(sizePart) > MAX_PAGE_SIZE) {
+                if (sizePart != null) {
+                    pageSize = Integer.valueOf(sizePart);
+                    if (pageSize > MAX_PAGE_SIZE) {
                         throw new ApiRequestException("Page size must be less than 1000");
                     }
-                else {
+                    else if (pageSize < 1) {
                         throw new ApiRequestException("Page size must be greater than 0");
                     }
                 }
 
-                if (!type.equals("search") && type.equals("sponsor")) {
+                if (!type.equals("search")) {
+                    if (type.equals("sponsor")) {
                         term = "sponsor:"+uriTerm+" AND otype:bill";
                         String filter = RequestUtils.getSearchString(request, "");
                         if (!filter.isEmpty()) {
@@ -111,17 +121,20 @@ public class ApiServlet1 extends HttpServlet
                         term = "otype:"+type.substring(0, type.length()-1)+(term.isEmpty() ? "" : " AND "+term);
                     }
                 }
-                else(term.isEmpty()) {
+                else if (term.isEmpty()) {
                     throw new ApiRequestException("A search term is required.");
                 }
 
                 doSearch(request, response, format, type, term, pageIdx, pageSize, sort, sortOrder);
             }
-            else(documentMatcher.find()) {
+            else if (documentMatcher.find()) {
                 String format = documentMatcher.group(1);
                 String otype = documentMatcher.group(2);
                 String oid = documentMatcher.group(3);
                 doSingleView(request, response, format, otype, oid);
+            }
+            else {
+                throw new ApiRequestException("Invalid request: "+uri);
             }
         }
         catch (ApiRequestException e) {
@@ -208,40 +221,42 @@ public class ApiServlet1 extends HttpServlet
             throw new ApiRequestException(TextFormatter.append("couldn't find id: ", id, " of type: ", type));
         }
         else {
-        bool flag;
-        switch(flag){
-
-                case format.equals("json"):
+            if (format.equals("json")) {
                 response.setContentType("application/json");
                 new Api1JsonConverter().write(object, response.getOutputStream());
-
-                case (format.equals("jsonp") && request.getParameter("callback")!= null && request.getParameter("callback")!=""):
-                PrintWriter out = response.getWriter();
-                response.setContentType("application/javascript");
-                out.write(callback+"("+new Api1JsonConverter().toString(object)+");");
-           
-                case (format.equals("jsonp") && !(request.getParameter("callback")!= null && request.getParameter("callback")!="")):
-                throw new ApiRequestException("callback parameter required for jsonp queries.");
-
-                case format.equals("xml"):
+            }
+            else if (format.equals("jsonp")) {
+                String callback = request.getParameter("callback");
+                if (callback != null && callback != "") {
+                    PrintWriter out = response.getWriter();
+                    response.setContentType("application/javascript");
+                    out.write(callback+"("+new Api1JsonConverter().toString(object)+");");
+                }
+                else {
+                    throw new ApiRequestException("callback parameter required for jsonp queries.");
+                }
+            }
+            else if (format.equals("xml")) {
                 response.setContentType("application/xml");
                 new Api1XmlConverter().write(object, response.getOutputStream());
-
-                case format.equals("lrs-print"):
+            }
+            else if (format.equals("lrs-print")) {
                 request.setAttribute("bill", object);
                 request.getSession().getServletContext().getRequestDispatcher("/views/bill-lrs-print.jsp").forward(request, response);
-                
-                case format.equals("pdf"):
+            }
+            else if (format.equals("pdf")) {
                 response.setContentType("application/pdf");
-                    try {
+                try {
                     BillTextPDFConverter.write(object, response.getOutputStream());
-                    } catch (COSVisitorException e) {
+                } catch (COSVisitorException e) {
                     logger.error(e.getMessage(), e);
                     throw new ApiRequestException("internal server error.", e);
-                    }
+                }
             }
+            else if (format.equals("html") || format.equals("html-print")) {
+                // TODO: Send a 301 response instead.
+                response.sendRedirect(request.getContextPath()+"/"+type+"/"+id );
             }
-            
         }
     }
 }

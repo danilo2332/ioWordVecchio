@@ -554,12 +554,14 @@ public class StorageJsonConverter
 
     public Date makeDate(JsonNode node)
     {
+    	synchronized(dateFormat) {
         try {
             return node.isNull() ? null : jsonDateFormat.parse(node.asText());
         }
         catch (ParseException e) {
             logger.error("Invalid json date format: "+node.asText(), e);
             return null;
+        	}
         }
     }
 
@@ -729,11 +731,13 @@ public class StorageJsonConverter
 
     public String makeNode(Date date)
     {
+    	synchronized(dateFormat) {
         if (date != null) {
             return jsonDateFormat.format(date);
         }
         else {
             return null;
+        	}
         }
     }
 

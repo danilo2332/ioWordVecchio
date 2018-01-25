@@ -53,7 +53,7 @@ public final class Vote extends BaseObject {
         absent = new ArrayList<String>();
     }
 
-    public Vote(String billId, Date date, int type, String sequenceNumber)
+    public synchronized Vote(String billId, Date date, int type, String sequenceNumber)
     {
         this();
         this.voteDate = date;

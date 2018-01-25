@@ -48,6 +48,8 @@ public class ApiHelper implements OpenLegConstants {
     }
 
     public static ArrayList<Result> buildSearchResultList(SenateResponse sr) {
+    	
+    	synchronized(dateFormat) {
 
         ArrayList<Result> resultList = new ArrayList<Result>();
 
@@ -213,6 +215,8 @@ public class ApiHelper implements OpenLegConstants {
         }
 
         return sr.getResults();
+        
+    	}
     }
 
     public static String dateReplace(String term) {

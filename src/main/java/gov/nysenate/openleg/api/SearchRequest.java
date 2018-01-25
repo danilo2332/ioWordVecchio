@@ -47,6 +47,10 @@ public class SearchRequest extends AbstractApiRequest {
 
     @Override
     public void fillRequest() throws ApiRequestException {
+    	
+    
+    	synchronized(dateFormat) {
+    		
         QueryBuilder queryBuilder = new QueryBuilder();
         try {
             // If the search terms sent are valid, use them
@@ -216,6 +220,7 @@ public class SearchRequest extends AbstractApiRequest {
         feeds.put(term, JSPHelper.getFullLink(request, "/search/?format=atom&amp;term="+term));
         request.setAttribute("feeds", feeds);
     }
+}
 
     @Override
     public String getView() {
@@ -251,6 +256,8 @@ public class SearchRequest extends AbstractApiRequest {
         }
 
         return (term == null) ? "" : term;
+        
+    	}
     }
 
     private boolean valid(String str) {

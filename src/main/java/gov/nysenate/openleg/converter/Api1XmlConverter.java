@@ -14,6 +14,7 @@ import gov.nysenate.openleg.model.Sequence;
 import gov.nysenate.openleg.model.Supplemental;
 import gov.nysenate.openleg.model.Transcript;
 import gov.nysenate.openleg.model.Vote;
+import gov.nysenate.openleg.model.BaseObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -49,7 +50,6 @@ public class Api1XmlConverter
     public String toString(SenateResponse value) throws IOException
     {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        write(value, stream);
         return stream.toString(this.encoding);
     }
 
@@ -60,23 +60,29 @@ public class Api1XmlConverter
         return stream.toString(this.encoding);
     }
 
+    public enum servlet_enum{
+        bill, calendar, meeting, transcript
+    }
     public void write(BaseObject object, OutputStream out) throws IOException
     {
-        if (object.getOtype().equals("bill")) {
-            write((Bill)object, out);
-        }
-        else if (object.getOtype().equals("calendar")) {
-            write((Calendar)object, out);
-        }
-        else if (object.getOtype().equals("meeting")) {
-            write((Meeting)object, out);
-        }
-        else if (object.getOtype().equals("transcript")) {
-            write((Transcript)object, out);
-        }
-        else {
-            throw new RuntimeException("Invalid base object otype: "+object.getOtype());
-        }
+       
+       switch(object.getOtype()){
+           
+           case "bill":
+           write((Bill)object, out);
+           
+           case "calendar":
+           write((Calendar)object, out);
+           
+           case "meeting":
+           write((Meeting)object, out);
+           
+           case "transcript":
+           write((Transcript)object, out);
+           
+           default: 
+           throw new RuntimeException("Invalid base object otype: "+object.getOtype());
+       }
     }
 
     public void write(SenateResponse response, OutputStream out) throws IOException
@@ -88,16 +94,20 @@ public class Api1XmlConverter
             resultNode.setAttribute("type", result.getOtype());
             resultNode.setAttribute("id", result.getOid());
             resultNode.setAttribute("title", result.getTitle());
-            if (result.getOtype().equals("action")) {
+            
+            
+            switch(result.getOtype()){
+                
+                case "action":
                 Action action = (Action)result.getObject();
                 resultNode.setAttribute("billno", action.getBill().getBillId());
-            }
-            else if (result.getOtype().equals("vote")) {
+                
+                case "vote":
                 Vote vote = (Vote)result.getObject();
                 resultNode.setAttribute("billno", vote.getBill().getBillId());
                 resultNode.setAttribute("sponsor", vote.getBill().getSponsor().getFullname());
-            }
-            else if (result.getOtype().equals("bill")) {
+                
+                case "bill":
                 root.setName("docket");
                 resultNode.setName("bill");
                 Bill bill = (Bill)result.getObject();
@@ -124,20 +134,21 @@ public class Api1XmlConverter
                 Element committeeNode = new Element("committee");
                 committeeNode.addContent(bill.getCurrentCommittee());
                 resultNode.addContent(committeeNode);
-            }
-            else if (result.getOtype().equals("meeting")) {
+                
+                case "meeting":
                 Meeting meeting = (Meeting)result.getObject();
                 resultNode.setAttribute("committee", meeting.getCommitteeName());
                 resultNode.setAttribute("location", meeting.getLocation());
                 resultNode.setAttribute("chair", meeting.getCommitteeChair());
-            }
-            else if (result.getOtype().equals("transcript")) {
+                
+                case "transcript":
                 Transcript transcript = (Transcript)result.getObject();
                 resultNode.setAttribute("location", transcript.getLocation());
-            }
-            else if (result.getOtype().equals("calendar")) {
-                // no additional fields.
-            }
+                
+                default:
+                //no additional fields
+                    
+            } //end switch
             root.addContent(resultNode);
         }
         write(root, out);
@@ -189,56 +200,50 @@ public class Api1XmlConverter
             voteElement.setAttribute("excused",vote.getExcused().size()+"");
 
             Iterator<String> it = vote.getAyes().iterator();
-
-            while (it.hasNext()) {
-                Element elemVoter = new Element("voter");
-                elemVoter.setAttribute("name",it.next());
-                elemVoter.setAttribute("vote","aye");
-                voteElement.addContent(elemVoter);
-            }
+            
+            String string0 = new String("aye");
+            iteratore(string0, it, voteElement);
 
             it = vote.getNays().iterator();
 
-            while (it.hasNext()) {
-                Element elemVoter = new Element("voter");
-                elemVoter.setAttribute("name",it.next());
-                elemVoter.setAttribute("vote","nay");
-                voteElement.addContent(elemVoter);
-            }
+            String string1 = new String ("nay");
+            iteratore(string1, it,voteElement);
 
             it = vote.getAbstains().iterator();
 
-            while (it.hasNext()) {
-                Element elemVoter = new Element("voter");
-                elemVoter.setAttribute("name",it.next());
-                elemVoter.setAttribute("vote","abstain");
-                voteElement.addContent(elemVoter);
-            }
+            String string2 = new String ("abstrain");
+            iteratore(string2, it,voteElement);
+           
 
             it = vote.getExcused().iterator();
-
-            while (it.hasNext()) {
-                Element elemVoter = new Element("voter");
-                elemVoter.setAttribute("name",it.next());
-                elemVoter.setAttribute("vote","excused");
-                voteElement.addContent(elemVoter);
-            }
-
+            
+            String string3= new String ("excused");
+            iteratore(string3, it,voteElement);
             votesElement.addContent(voteElement);
         }
         billElement.addContent(votesElement);
 
-        if (bill.getFulltext()!=null) {
-            billElement.addContent(makeElement("text", new CDATA(bill.getFulltext())));
+        bool flag2; //fix
+        switch(flag2){
+            
+            case bill.getFulltext()!=null:
+              billElement.addContent(makeElement("text", new CDATA(bill.getFulltext())));
+   
+            case bill.getMemo()!=null:
+            billElement.addContent(makeElement("memo", new CDATA(bill.getMemo())));    
+        
         }
-
-        if (bill.getMemo()!=null) {
-            billElement.addContent(makeElement("memo", new CDATA(bill.getMemo())));
-        }
-
+       
         write(makeElement("docket", billElement), out);
     }
 
+public void iteratore(String elemvoterAttribute, Iterator it, Element voteElement){
+    while(it.hasNext()){
+    Element elemVoter = new Element("voter");
+                elemVoter.setAttribute("name",it.next());
+                elemVoter.setAttribute("vote",elemvoterAttribute);
+                voteElement.addContent(elemVoter);
+}}
     protected void write(Transcript transcript, OutputStream out) throws IOException
     {
         Element root = new Element("transcript");
@@ -361,33 +366,37 @@ public class Api1XmlConverter
         }
         return root;
     }
-
+//fix
     protected Element makeElementList(String listTag, String itemTag, Collection<? extends Object> list)
     {
         Element element = new Element(listTag);
+        
         if (list != null) {
             for (Object item : list) {
-                if(Bill.class.isInstance(item)) {
-                    element.addContent(makeShortElement(itemTag, (Bill)item));
-                }
-                else if(Supplemental.class.isInstance(item)) {
-                    element.addContent(makeElement(itemTag, (Supplemental)item));
-                }
-                else if(Section.class.isInstance(item)) {
-                    element.addContent(makeElement(itemTag, (Section)item));
-                }
-                else if(Sequence.class.isInstance(item)) {
-                    element.addContent(makeElement(itemTag, (Sequence)item));
-                }
-                else if(CalendarEntry.class.isInstance(item)) {
-                    element.addContent(makeElement(itemTag, (CalendarEntry)item));
-                }
-                else if(String.class.isInstance(item)) {
-                    element.addContent(makeElement(itemTag, (String)item));
-                }
-                else {
-                    throw new RuntimeException("Invalid array node type: "+item.getClass());
-                }
+                
+            
+            switch(fix){
+                
+                case Bill.class.isInstance(item):
+                element.addContent(makeShortElement(itemTag, (Bill)item)); 
+                
+                case Supplemental.class.isInstance(item):
+                element.addContent(makeElement(itemTag, (Supplemental)item)); 
+                
+                case Section.class.isInstance(item):
+                element.addContent(makeElement(itemTag, (Section)item));
+                
+                case CalendarEntry.class.isInstance(item):
+                element.addContent(makeElement(itemTag, (CalendarEntry)item));
+                
+                case String.class.isInstance(item):
+                element.addContent(makeElement(itemTag, (String)item));
+                
+                default:
+                throw new RuntimeException("Invalid array node type: "+item.getClass());    
+                
+            }
+            
             }
         }
         return element;
@@ -396,9 +405,12 @@ public class Api1XmlConverter
 
     protected Element makeElement(String tag, Date value)
     {
+    	synchronized(dateFormat) {
         Element element = new Element(tag);
         element.addContent(dateFormat.format(value));
         return element;
+        
+    	}
     }
 
     protected Element makeElement(String tag, String value)

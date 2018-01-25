@@ -361,9 +361,11 @@ public class Api2XmlConverter
 
     protected Element makeElement(String tag, Date value)
     {
+    	synchronized(dateFormat) {
         Element element = new Element(tag);
         element.addContent(dateFormat.format(value));
         return element;
+    	}
     }
 
     protected Element makeElement(String tag, String value)

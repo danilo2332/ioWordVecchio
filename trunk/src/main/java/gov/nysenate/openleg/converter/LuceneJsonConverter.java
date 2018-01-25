@@ -25,6 +25,13 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.text.SimpleDateFormat;
+import java.util.Collection;
+import java.util.Date;
+import java.util.Iterator;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
@@ -49,28 +56,34 @@ public class LuceneJsonConverter
             JsonObject root = new JsonObject();
             try {
                 JsonObject node = null;
-                if(o instanceof Bill) {
+                
+                bool flag;
+                switch (flag){
+                
+                    case (o instanceof Bill):
                     cachedSimpleBills.remove(((Bill)o).getBillId());
                     node = converter(o, null);
-                }
-                else if(o instanceof Meeting) {
+                    
+                    case (o instanceof Meeting):
                     node = converter(o, null);
-                }
-                else if(o instanceof Transcript) {
+                    
+                    case (o instanceof Transcript):
                     node = converter(o, transcript_exclude());
-                }
-                else if(o instanceof Calendar) {
+                    
+                    case(o instanceof Calendar):
                     node = converter(o, null);
-                }
-                else if(o instanceof Action) {
+                
+                    case (o instanceof Action):
                     node = converter(o, null);
+                    
+                    case(o instanceof Vote):
+                    node = converter(o, null);  
+                    
+                    default:
+                    throw new RuntimeException("Cannot convert BaseObject of type: "+o.getOtype());  
+                
                 }
-                else if(o instanceof Vote) {
-                    node = converter(o, null);
-                }
-                else {
-                    throw new RuntimeException("Cannot convert BaseObject of type: "+o.getOtype());
-                }
+               
                 root.add(o.getOtype(), node);
                 return root.toString();
             }
@@ -91,6 +104,9 @@ public class LuceneJsonConverter
      * in particular this method will explicitly handle generic arguments and branches
      * to other methods for more complex data types (dependent on type)
      */
+    
+    
+    //tofix
     private static JsonObject converter(Object o, List<String> exclude) throws Exception
     {
         List<Field> fields = new ArrayList<Field>();
@@ -172,7 +188,69 @@ public class LuceneJsonConverter
         }
         return root;
     }
+//tofix
+    public void modificatore(Field f, List<String> exclude, Object o){
+                       if(!f.getName().contains("jdo") && !Modifier.isStatic(f.getModifiers())) {
+                    String name = StringUtils.capitalize(f.getName());
+                    String type = f.getType().getSimpleName();
 
+                    if(!exclude.contains(f.getName())) {
+                        f.setAccessible(true);
+                        Object obj = f.get(o);
+                        f.setAccessible(false);
+
+                        if(obj == null) {
+                            root.add(f.getName(), null);
+                        }
+                        else {
+                            if(isPrimitive(obj)) {
+                                root.addProperty(f.getName(), obj.toString());
+                            }
+                            else if(type.equals("Bill")) {
+                                Bill bill = (Bill)obj;
+
+                                if(!cachedSimpleBills.containsKey(bill.getBillId())) {
+                                    cachedSimpleBills.put(bill.getBillId(), converter(obj,internal_bill_exclude()));
+                                }
+
+                                root.add(f.getName(), cachedSimpleBills.get(bill.getBillId()));
+                            }
+                            else if(type.equals("Date")) {
+                                Date d = (Date)obj;
+                                root.addProperty(f.getName(), (d != null) ? d.getTime() + "":"");
+                            }
+                            else if(type.equals("List") || type.equals("HashSet")) {
+                                Collection<?> collection = ((Collection<?>)obj);
+                                Iterator<?> iter = collection.iterator();
+                                JsonArray jarray = new JsonArray();
+                                if (iter.hasNext()) {
+                                    if (iter.next() instanceof String) {
+                                        for(String str :(Collection<String>)collection) {
+                                            JsonPrimitive jp = new JsonPrimitive(str);
+                                            jarray.add(jp);
+                                        }
+                                    }
+                                    else {
+                                        jarray = (JsonArray)LuceneJsonConverter.class.getDeclaredMethod("list" + o.getClass().getSimpleName(),Collection.class).invoke(null,collection);
+                                    }
+                                }
+                                root.add(f.getName(), jarray);
+                            }
+                            else if(type.equals("Person")) {
+                                root.add(f.getName(),converter(obj, null));
+                            }
+                            else if (type.equals("Agenda")) {
+                                root.add(f.getName(),converter(obj,agenda_exclude()));
+                            }
+                            else {
+                                throw new RuntimeException("UNKNOWN: " + type + "(type):" + name + " (name) IN CLASS " + o.getClass().getSimpleName());
+                            }
+                        }
+                    }
+                } 
+        
+        
+    }
     private static boolean isPrimitive(Object obj)
     {
         return obj != null && (
@@ -199,6 +277,17 @@ public class LuceneJsonConverter
     {
         JsonArray jarray = new JsonArray();
 
+        bool flag;
+        switch(bool){
+        
+            case (c.iterator().hasNext()):
+            Object o = c.iterator().next();
+            
+            case (c.iterator().hasNext() && o instanceof Bill):
+            for(Bill bill: (Collection<Bill>) c) {
+                    jarray.add(converter(bill, null));    
+        }
+        
         if(c.iterator().hasNext()) {
             Object o = c.iterator().next();
             if(o instanceof Bill) {

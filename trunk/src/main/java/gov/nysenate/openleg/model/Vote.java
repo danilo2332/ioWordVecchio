@@ -55,7 +55,6 @@ public final class Vote extends BaseObject {
 
     public synchronized Vote(String billId, Date date, int type, String sequenceNumber)
     {
- 
         this();
         this.voteDate = date;
         java.util.Calendar cal = java.util.Calendar.getInstance();

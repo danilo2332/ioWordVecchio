@@ -30,16 +30,22 @@ import org.apache.log4j.Logger;
  * Servlet implementation class UpdateServlet
  */
 @SuppressWarnings("serial")
-public class UpdatesServlet extends HttpServlet
+
+public class UpdatesServlet extends HttpServlet implements Syncro
 {
     public static final int QUERY_LIMIT = 250;
 
-    private static class ChangeHandler implements ResultSetHandler<ArrayList<Change>> {
+    private static class ChangeHandler implements ResultSetHandler<ArrayList<Change>>, Syncro{
 
+    	public static String SyncroDate(SimpleDateFormat date) {
+    		synchronized (date) {
+    			return date;
+    		}
+    	}
+    	
         @Override
         public ArrayList<Change> handle(ResultSet results) throws SQLException
         {
-        	synchronized(dateFormat) {
 
             ArrayList<Change> changes = new ArrayList<Change>();
             while(results.next()) {
@@ -48,7 +54,7 @@ public class UpdatesServlet extends HttpServlet
                             results.getString("oid"),
                             results.getString("otype"),
                             Storage.Status.valueOf(results.getString("status")),
-                            mysqlDateFormat.parse(results.getString("time"))
+                            SyncroDate(mysqlDateFormat).parse(results.getString("time"))
                         ));
                     }
                     catch (ParseException e) {
@@ -56,7 +62,6 @@ public class UpdatesServlet extends HttpServlet
                     }
             }
             return changes;
-        	}
         }
     }
 
@@ -70,6 +75,12 @@ public class UpdatesServlet extends HttpServlet
     private final ResultSetHandler<ArrayList<Change>> handler;
 
     private final List<String> otypes = Arrays.asList("bill","calendar","meeting","agenda");
+    
+    public static String SyncroDate(SimpleDateFormat date) {
+		synchronized (date) {
+			return date;
+		}
+	}
 
     public UpdatesServlet()
     {
@@ -92,10 +103,9 @@ public class UpdatesServlet extends HttpServlet
             return value;
         }
     }
-
+    
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
     {
-    	synchronized(dateFormat) {
         String start = getSafe(request, "start", "");
         String end = getSafe(request, "end", "");
         String otype = getSafe(request, "otype", "");
@@ -106,12 +116,12 @@ public class UpdatesServlet extends HttpServlet
 
         try {
             if (!start.isEmpty()) {
-                startDate = dateFormat.parse(start+" 00:00:00");
+                startDate =  SyncroDate(dateFormat).parse(start+" 00:00:00");
                 request.setAttribute("startDate", startDate);
             }
 
             if (!start.isEmpty()) {
-                endDate = dateFormat.parse(end+" 23:59:59");
+                endDate = SyncroDate(dateFormat).parse(end+" 23:59:59");
                 request.setAttribute("endDate", endDate);
             }
 
@@ -155,18 +165,18 @@ public class UpdatesServlet extends HttpServlet
      */
     public List<Change> getHistory(Date start, Date end, String otype, String oid) throws SQLException
     {
-    	synchronized(dateFormat) {
+    	synchronized(mysqlDateFormat) {
         String query = "SELECT * FROM changelog WHERE 1=1";
         List<Object> params = new ArrayList<Object>();
 
         if (start != null) {
             query += " AND time >= ?";
-            params.add(mysqlDateFormat.format(start));
+            params.add(SyncroDate(mysqlDateFormat).format(start));
         }
 
         if (end != null) {
             query += " AND time <= ?";
-            params.add(mysqlDateFormat.format(end));
+            params.add(SyncroDate(mysqlDateFormat).format(end));
         }
 
         if (otype != null && !otype.isEmpty()) {
@@ -225,4 +235,8 @@ public class UpdatesServlet extends HttpServlet
 
         return structuredChanges;
     }
+}
+
+interface Syncro {
+	public static String SyncroDate(SimpleDateFormat date)
 }
